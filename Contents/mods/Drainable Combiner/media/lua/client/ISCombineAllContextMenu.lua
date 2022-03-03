@@ -18,25 +18,27 @@ function ISCombineAllContextMenu.onCombineAll(items, player, isChecked, toReturn
     local types = {}
     combineableItems, types = categorizeCombineable(items)
     local itemsToReturnToContainer = (toReturn ~= nil and #toReturn > 0) and toReturn or {}
-    local isChecked = isChecked ~= nil and isChecked or false --check for where combine is happening from (inventory or other container)
-    
+    local isChecked = isChecked ~= nil and isChecked or false -- check for where combine is happening from (inventory or other container)
+
     local typeToCombine = types[1]
     if typeToCombine ~= nil then
         if isChecked == false then -- only setup transfer once
             if inventory ~= combineableItems[types[1]][1]:getContainer() then
                 if toReturn == nil or #toReturn == 0 then
                     for _, v in pairs(items) do
-                        transferTo(character, v, v:getContainer(), inventory)
-                        table.insert(itemsToReturnToContainer, {
-                            container = v:getContainer(),
-                            item = v
-                        })
+                        if hasCombineableDelta(v) == true then
+                            transferTo(character, v, v:getContainer(), inventory)
+                            table.insert(itemsToReturnToContainer, {
+                                container = v:getContainer(),
+                                item = v
+                            })
+                        end
                     end
                 end
             end
-    
+
             isChecked = true
-        end --end initial transfer
+        end -- end initial transfer
 
         combineItems(combineableItems[typeToCombine], items, player, isChecked, itemsToReturnToContainer)
     else -- transfer items back to original container after combine all
@@ -77,12 +79,12 @@ function canCombineAll(items, player)
                 return false
             end
 
-            if item:getDelta() < 1.0 and item:getDelta() > 0.0 then
+            if hasCombineableDelta(item) == true then 
                 totalCombineable = totalCombineable + 1
             end
         end
 
-        if type[1] == type[2] and (type[1]:getDelta() < 1.0 and type[1]:getDelta() > 0.0) then -- if collapsed, account for ghost row
+        if type[1] == type[2] and hasCombineableDelta(type[1]) == true then -- if collapsed, account for ghost row
             totalCombineable = totalCombineable - 1
         end
 
@@ -93,12 +95,17 @@ function canCombineAll(items, player)
     return true
 end
 
+function hasCombineableDelta(item)
+    local delta = item:getDelta()
+    return delta < 1.0 and delta > 0.0
+end
+
 function categorizeCombineable(items, existingCombineable)
     local combineable = existingCombineable ~= nil and existingCombineable or {}
     local types = {}
 
     for _, v in pairs(items) do
-        if v:getDelta() < 1.0 and v:getDelta() > 0.0 then
+        if hasCombineableDelta(v) == true then
             if v:getName() == "Water Bottle" then
                 if combineable["Water Bottle"] ~= nil then
                     table.insert(combineable["Water Bottle"], v)
