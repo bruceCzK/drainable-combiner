@@ -2,21 +2,68 @@ ISCombineAllContextMenu = {};
 
 function ISCombineAllContextMenu.DoContextMenu(player, context, items)
     local contextItem = items[1]
-    if canCombineAll(items, player) then
-        context:addOption(getText("UI_ContextMenu_CombineAll"), items, ISCombineAllContextMenu.onCombineAll, player)
+    local combineableItems = {}
+    combineableItems = getCombineableItems(items)
+
+    if canCombineAll(combineableItems, player) then
+        context:addOption(getText("UI_ContextMenu_CombineAll"), combineableItems, ISCombineAllContextMenu.onCombineAll,
+            player)
     end
 end
 
-function ISCombineAllContextMenu.onCombineAll(items, player)
-    publishAction(items, player)
+function ISCombineAllContextMenu.onCombineAll(items, player, isChecked, toReturn)
+    local character = getSpecificPlayer(player)
+    local inventory = character:getInventory()
+    local combineableItems = {}
+    local types = {}
+    combineableItems, types = categorizeCombineable(items)
+    local itemsToReturnToContainer = (toReturn ~= nil and #toReturn > 0) and toReturn or {}
+    local isChecked = isChecked ~= nil and isChecked or false --check for where combine is happening from (inventory or other container)
+    
+    local typeToCombine = types[1]
+    if typeToCombine ~= nil then
+        if isChecked == false then -- only setup transfer once
+            if inventory ~= combineableItems[types[1]][1]:getContainer() then
+                if toReturn == nil or #toReturn == 0 then
+                    for _, v in pairs(items) do
+                        transferTo(character, v, v:getContainer(), inventory)
+                        table.insert(itemsToReturnToContainer, {
+                            container = v:getContainer(),
+                            item = v
+                        })
+                    end
+                end
+            end
+    
+            isChecked = true
+        end --end initial transfer
+
+        combineItems(combineableItems[typeToCombine], items, player, isChecked, itemsToReturnToContainer)
+    else -- transfer items back to original container after combine all
+        for _, v in pairs(itemsToReturnToContainer) do
+            if inventory:contains(v.item) == true then
+                transferTo(character, v.item, inventory, v.container)
+            end
+        end
+    end
+end
+
+function combineItems(combineable, all, player, isOutsideInventory, itemsToReturnToContainer)
+    local firstItem = combineable[1]
+    local lastItem = combineable[#combineable]
+
+    if firstItem ~= lastItem then
+        local action = ISCombineAll:new(player, firstItem, lastItem, 90)
+        action:setOnComplete(ISCombineAllContextMenu.onCombineAll, all, player, isOutsideInventory,
+            itemsToReturnToContainer)
+        ISTimedActionQueue.add(action)
+    end
 end
 
 function canCombineAll(items, player)
     local combineable = {}
     local types = {}
     combineable, types = categorizeCombineable(items)
-    local character = getSpecificPlayer(player)
-    local inventory = character:getInventory()
 
     if #types == 0 then
         return false
@@ -26,8 +73,7 @@ function canCombineAll(items, player)
         local totalCombineable = 0
 
         for _, item in pairs(type) do
-            if not instanceof(item, "DrainableComboItem") or inventory:contains(item) ~= true or item:canConsolidate() ~=
-                true then
+            if not instanceof(item, "DrainableComboItem") or item:canConsolidate() ~= true then
                 return false
             end
 
@@ -52,25 +98,20 @@ function categorizeCombineable(items, existingCombineable)
     local types = {}
 
     for _, v in pairs(items) do
-        if instanceof(v, "DrainableComboItem") == true then -- if expanded
-            if v:getDelta() < 1.0 and v:getDelta() > 0.0 then
-                if v:getName() == "Water Bottle" then
-                    if combineable["Water Bottle"] ~= nil then
-                        table.insert(combineable["Water Bottle"], v)
-                    else
-                        combineable["Water Bottle"] = {v}
-                    end
+        if v:getDelta() < 1.0 and v:getDelta() > 0.0 then
+            if v:getName() == "Water Bottle" then
+                if combineable["Water Bottle"] ~= nil then
+                    table.insert(combineable["Water Bottle"], v)
                 else
-                    if combineable[v:getType()] ~= nil then -- if the type already exists in table
-                        table.insert(combineable[v:getType()], v)
-                    else
-                        combineable[v:getType()] = {v}
-                    end
+                    combineable["Water Bottle"] = {v}
+                end
+            else
+                if combineable[v:getType()] ~= nil then -- if the type already exists in table
+                    table.insert(combineable[v:getType()], v)
+                else
+                    combineable[v:getType()] = {v}
                 end
             end
-        elseif type(v) == "table" then -- if collapsed
-            local tableItems = v.items
-            categorizeCombineable(tableItems, combineable)
         end
     end
 
@@ -84,23 +125,24 @@ function categorizeCombineable(items, existingCombineable)
     return combineable, types
 end
 
-function publishAction(items, player)
-    local combineableItems = {}
-    local types = {}
-    combineableItems, types = categorizeCombineable(items)
+function transferTo(character, item, sourceContainer, destinationContainer)
+    local action = ISInventoryTransferAction:new(character, item, sourceContainer, destinationContainer)
+    ISTimedActionQueue.add(action)
+end
 
-    local typeToCombine = types[1]
-    if typeToCombine ~= nil then
-        local itemsToCombine = combineableItems[typeToCombine]
-        local firstItem = itemsToCombine[1]
-        local lastItem = itemsToCombine[#itemsToCombine]
+function getCombineableItems(items, existingCombineableItems)
+    local comebineableItems = existingCombineableItems ~= nil and existingCombineableItems or {}
 
-        if firstItem ~= lastItem then
-            local action = ISCombineAll:new(player, firstItem, lastItem, 90)
-            action:setOnComplete(ISCombineAllContextMenu.onCombineAll, items, player)
-            ISTimedActionQueue.add(action)
+    for _, v in pairs(items) do
+        if instanceof(v, "DrainableComboItem") == true then -- if expanded
+            table.insert(comebineableItems, v)
+        elseif type(v) == "table" then -- if collapsed
+            local tableItems = v.items
+            getCombineableItems(tableItems, comebineableItems)
         end
     end
+
+    return comebineableItems
 end
 
 Events.OnFillInventoryObjectContextMenu.Add(ISCombineAllContextMenu.DoContextMenu);

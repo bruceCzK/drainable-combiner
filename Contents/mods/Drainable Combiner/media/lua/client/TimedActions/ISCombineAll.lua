@@ -5,7 +5,7 @@ ISCombineAll = ISBaseTimedAction:derive("ISCombineAll");
 
 ISCombineAll_OVERWRITE_isValid = ISConsolidateDrainable.isValid
 function ISCombineAll:isValid()
-    return ISCombineAll_OVERWRITE_isValid(self)
+    return true
 end
 
 ISCombineAll_OVERWRITE_update = ISConsolidateDrainable.update
@@ -28,7 +28,7 @@ function ISCombineAll:perform()
     ISCombineAll_OVERWRITE_perform(self)
     if self.onCompleteFunc then
         local args = self.onCompleteArgs
-        self.onCompleteFunc(args[1], args[2])
+        self.onCompleteFunc(args[1], args[2], args[3], args[4])
     end
 
     -- needed to remove from queue / start next.
@@ -40,7 +40,7 @@ function ISCombineAll:new(character, drainable, intoItem, time)
     return ISCombineAll_OVERWRITE_new(self, character, drainable, intoItem, time)
 end
 
-function ISCombineAll:setOnComplete(func, arg1, arg2)
+function ISCombineAll:setOnComplete(func, arg1, arg2, arg3, arg4)
     self.onCompleteFunc = func
-    self.onCompleteArgs = {arg1, arg2}
+    self.onCompleteArgs = {arg1, arg2, arg3, arg4}
 end
