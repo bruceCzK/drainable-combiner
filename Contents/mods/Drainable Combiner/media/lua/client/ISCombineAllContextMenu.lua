@@ -24,7 +24,7 @@ function ISCombineAllContextMenu.onCombineAll(items, player, isChecked, toReturn
     if typeToCombine ~= nil then
         if isChecked == false then -- only setup transfer once
             if inventory ~= combineableItems[types[1]][1]:getContainer() then
-                if toReturn == nil or #toReturn == 0 then
+                if itemsToReturnToContainer == nil or #itemsToReturnToContainer == 0 then
                     for _, v in pairs(items) do
                         if hasCombineableDelta(v) then
                             transferTo(character, v, v:getContainer(), inventory)
