@@ -112,6 +112,12 @@ function categorizeCombineable(items, existingCombineable)
                 else
                     combineable["Water Bottle"] = {v}
                 end
+            elseif v:getName() == "Water Bottle (Tainted)" then
+                if combineable["Water Bottle (Tainted)"] ~= nil then
+                    table.insert(combineable["Water Bottle (Tainted)"], v)
+                else
+                    combineable["Water Bottle (Tainted)"] = {v}
+                end
             else
                 if combineable[v:getType()] ~= nil then -- if the type already exists in table
                     table.insert(combineable[v:getType()], v)
@@ -124,7 +130,7 @@ function categorizeCombineable(items, existingCombineable)
 
     for _, v in pairs(combineable) do
         if #v > 1 then
-            local type = v[1]:getName() == "Water Bottle" and v[1]:getName() or v[1]:getType()
+            local type = (v[1]:getName() == "Water Bottle" or v[1]:getName() == "Water Bottle (Tainted)") and v[1]:getName() or v[1]:getType()
             table.insert(types, type)
         end
     end
