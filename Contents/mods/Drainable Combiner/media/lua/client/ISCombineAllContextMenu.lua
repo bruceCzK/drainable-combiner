@@ -26,7 +26,7 @@ function ISCombineAllContextMenu.onCombineAll(items, player, isChecked, toReturn
             if inventory ~= combineableItems[types[1]][1]:getContainer() then
                 if toReturn == nil or #toReturn == 0 then
                     for _, v in pairs(items) do
-                        if hasCombineableDelta(v) == true then
+                        if hasCombineableDelta(v) then
                             transferTo(character, v, v:getContainer(), inventory)
                             table.insert(itemsToReturnToContainer, {
                                 container = v:getContainer(),
@@ -43,7 +43,7 @@ function ISCombineAllContextMenu.onCombineAll(items, player, isChecked, toReturn
         combineItems(combineableItems[typeToCombine], items, player, isChecked, itemsToReturnToContainer)
     else -- transfer items back to original container after combine all
         for _, v in pairs(itemsToReturnToContainer) do
-            if inventory:contains(v.item) == true then
+            if inventory:contains(v.item) then
                 transferTo(character, v.item, inventory, v.container)
             end
         end
@@ -79,12 +79,12 @@ function canCombineAll(items, player)
                 return false
             end
 
-            if hasCombineableDelta(item) == true then 
+            if hasCombineableDelta(item) then 
                 totalCombineable = totalCombineable + 1
             end
         end
 
-        if type[1] == type[2] and hasCombineableDelta(type[1]) == true then -- if collapsed, account for ghost row
+        if type[1] == type[2] and hasCombineableDelta(type[1]) then -- if collapsed, account for ghost row
             totalCombineable = totalCombineable - 1
         end
 
@@ -105,25 +105,11 @@ function categorizeCombineable(items, existingCombineable)
     local types = {}
 
     for _, v in pairs(items) do
-        if hasCombineableDelta(v) == true then
-            if v:getName() == "Water Bottle" then
-                if combineable["Water Bottle"] ~= nil then
-                    table.insert(combineable["Water Bottle"], v)
-                else
-                    combineable["Water Bottle"] = {v}
-                end
-            elseif v:getName() == "Water Bottle (Tainted)" then
-                if combineable["Water Bottle (Tainted)"] ~= nil then
-                    table.insert(combineable["Water Bottle (Tainted)"], v)
-                else
-                    combineable["Water Bottle (Tainted)"] = {v}
-                end
+        if hasCombineableDelta(v) then
+            if v:getName() == "Water Bottle" or v:getName() == "Water Bottle (Tainted)" then
+                insertOrAddToTable(combineable, v, v:getName())
             else
-                if combineable[v:getType()] ~= nil then -- if the type already exists in table
-                    table.insert(combineable[v:getType()], v)
-                else
-                    combineable[v:getType()] = {v}
-                end
+                insertOrAddToTable(combineable, v, v:getType())
             end
         end
     end
@@ -138,6 +124,14 @@ function categorizeCombineable(items, existingCombineable)
     return combineable, types
 end
 
+function insertOrAddToTable(combineable, item, loc)
+    if combineable[loc] ~= nil then
+        table.insert(combineable[loc], item)
+    else
+        combineable[loc] = {item}
+    end
+end
+
 function transferTo(character, item, sourceContainer, destinationContainer)
     local action = ISInventoryTransferAction:new(character, item, sourceContainer, destinationContainer)
     ISTimedActionQueue.add(action)
@@ -147,7 +141,7 @@ function getCombineableItems(items, existingCombineableItems)
     local comebineableItems = existingCombineableItems ~= nil and existingCombineableItems or {}
 
     for _, v in pairs(items) do
-        if instanceof(v, "DrainableComboItem") == true then -- if expanded
+        if instanceof(v, "DrainableComboItem") then -- if expanded
             table.insert(comebineableItems, v)
         elseif type(v) == "table" then -- if collapsed
             local tableItems = v.items
